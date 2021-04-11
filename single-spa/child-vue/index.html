@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>test attachShadow(css隔离)</title>
+</head>
+
+<body>
+    <div>
+        <p>hello world</p>
+        <div id="shadow"></div>
+    </div>
+    <script>
+        let shadowDom = shadow.attachShadow({
+                mode: 'closed'
+            }) //mode:closed,open 外界可不可以访问到shadow dom
+        let pElem = document.createElement('p')
+        pElem.innerHTML = 'hello shadow'
+        let styleElem = document.createElement('style')
+        styleElem.textContent = `
+            p{color:red}
+        `
+        shadowDom.appendChild(styleElem)
+        shadowDom.appendChild(pElem)
+            // document.body.appendChild(pElem) //会出现问题，样式不起作用
+    </script>
+</body>
+
+</html>

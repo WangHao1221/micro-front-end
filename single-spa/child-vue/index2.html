@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>(js隔离)</title>
+</head>
+
+<body>
+    <script>
+        // 如果应用加载 刚开始加载A应用，在切换到B应用，B里面也可以访问到A，就会造成污染
+        // 沙箱：应用的运行从开始到结束，切换后不会影响全局
+        // 沙箱机制：创造一个干净的环境给子应用使用，当切换时，选择丢弃属性和恢复属性
+        // JS沙箱： proxy实现
+        // 单应用可以用：快照沙箱：前后比对，找出区别。eg:一年前拍照照片，一年后拍照照片，找出区别存起来，如果回到一年前，拿出区别运行即可
+        class SnapshotSandbox {
+            constructor() {
+                this.proxy = window //window属性
+                this.modifyPropsMap = {} //记录在window上的修改
+                this.active()
+            }
+            active() {
+                // 激活
+                this.windowSnapshot = {} //拍照
+                for (const prop in window) {
+                    if (window.hasOwnProperty(prop)) {
+                        // 是私有属性，则保存到快照
+                        this.windowSnapshot[prop] = window[prop]
+                    }
+                }
+                Object.keys(this.modifyPropsMap).forEach(p => {
+                    // 将上次的修改进行应用
+                    window[p] = this.modifyPropsMap[p]
+                })
+            }
+            inactive() {
+                // 失活
+                for (const prop in window) {
+                    if (window.hasOwnProperty(prop)) {
+                        // 现在的属性和以前的是否不一样，不一样则保存到变化表里面
+                        if (window[prop] !== this.windowSnapshot[prop]) {
+                            this.modifyPropsMap[prop] = window[prop];
+                            // 还原
+                            window[prop] = this.windowSnapshot[prop]
+                        }
+                    }
+                }
+            }
+        }
+        let sandbox = new SnapshotSandbox();
+        ((window) => {
+            window.a = 1
+            window.b = 2
+            console.log(window.a, window.b)
+            sandbox.inactive()
+            console.log(window.a, window.b)
+            sandbox.active()
+            console.log(window.a, window.b)
+        })(sandbox.proxy) //sandbox.proxy就是window
+
+
+        // 多个子应用就不能使用这种方式，需要使用es6的proxy
+        // 代理沙箱可以实现多应用沙箱，把不同的应用 用不同的代理来处理
+        class ProxySandbox {
+            constructor() {
+                const rawWindow = window //原window
+                const fakeWindow = {} //代理window
+                const proxy = new Proxy(fakeWindow, {
+                    set(target, p, value) {
+                        target[p] = value;
+                        return value
+                    },
+                    get(target, p) {
+                        return target[p] || rawWindow[p]
+                    }
+                });
+                this.proxy = proxy
+            }
+        }
+        let sandbox1 = new ProxySandbox()
+        let sandbox2 = new ProxySandbox()
+        window.a = 1;
+        ((window) => {
+            window.a = 'hello'
+            console.log(window.a)
+        })(sandbox1.proxy);
+        ((window) => {
+            window.a = 'world'
+            console.log(window.a)
+        })(sandbox2.proxy);
+    </script>
+</body>
+
+</html>
